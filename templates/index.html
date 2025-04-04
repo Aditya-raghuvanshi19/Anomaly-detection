@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Card Anomaly Detection</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .form-group button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .form-group button:hover {
+            background-color: #0056b3;
+        }
+        #resetButton {
+            background-color: #dc3545;
+        }
+        #resetButton:hover {
+            background-color: #bd2130;
+        }
+        #fetchButton {
+            background-color: #28a745;
+        }
+        #fetchButton:hover {
+            background-color: #218838;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 4px;
+        }
+        .normal {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .fraudulent {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -10px;
+        }
+        .form-column {
+            flex: 1;
+            min-width: 200px;
+            padding: 0 10px;
+            margin-bottom: 10px;
+        }
+        .status {
+            text-align: center;
+            margin-top: 10px;
+            padding: 10px;
+            display: none;
+        }
+        @media (max-width: 768px) {
+            .form-column {
+                flex: 0 0 50%;
+            }
+        }
+        @media (max-width: 480px) {
+            .form-column {
+                flex: 0 0 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h2 style="text-align: center;">Credit Card Anomaly Detection</h2>
+    <div class="container">
+        <form id="anomalyForm" action="/" method="post">
+            <div class="form-row" id="inputContainer">
+                <!-- Dynamic fields will be inserted here -->
+            </div>
+            <div class="form-row">
+                <div class="form-column">
+                    <div class="form-group">
+                        <button type="submit">Submit</button>
+                    </div>
+                </div>
+                <div class="form-column">
+                    <div class="form-group">
+                        <button type="button" id="resetButton">Reset</button>
+                    </div>
+                </div>
+                <div class="form-column">
+                    <div class="form-group">
+                        <button type="button" id="fetchButton">Fetch Random Data</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+        <div id="status" class="status"></div>
+        <div class="result" id="result" style="display: none;">
+            The transaction is: <span id="resultText"></span>
+        </div>
+                    <div class="form-group">
+            <label for="csvFile">Upload CSV File</label>
+            <input type="file" id="csvFile" accept=".csv">
+                    </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            // Default values
+            const defaultValues = {
+                "Time": "1.000000",
+                "V1": "-0.966272",
+                "V2": "-0.185226",
+                "V3": "1.792993",
+                "V4": "-0.863291",
+                "V5": "-0.010309",
+                "V6": "1.247203",
+                "V7": "0.237609",
+                "V8": "0.377436",
+                "V9": "-1.387024",
+                "V10": "-0.054952",
+                "V11": "-0.226487",
+                "V12": "0.178228",
+                "V13": "0.507757",
+                "V14": "-0.287924",
+                "V15": "-0.631418",
+                "V16": "-1.059647",
+                "V17": "-0.684093",
+                "V18": "1.965775",
+                "V19": "-1.232622",
+                "V20": "-0.208038",
+                "V21": "-0.108300",
+                "V22": "0.005274",
+                "V23": "-0.190321",
+                "V24": "-1.175575",
+                "V25": "0.647376",
+                "V26": "-0.221929",
+                "V27": "0.062723",
+                "V28": "0.061458",
+                "Amount": "123.500000"
+            };
+
+            // Create columns
+            const columns = 5;
+            for (let i = 0; i < columns; i++) {
+                $('#inputContainer').append(`<div class="form-column" id="column-${i}"></div>`);
+            }
+
+            // Create input fields dynamically
+            const fields = Object.keys(defaultValues);
+                            fields.forEach((field, index) => {
+                const columnIndex = index % columns;
+                const column = $(`#column-${columnIndex}`);
+
+                column.append(`
+                    <div class="form-group">
+                        <label for="${field}">${field}</label>
+                        <input type="number" step="any" id="${field}" name="${field}" required="">
+                    </div>
+                `);
+            });
+                            
+            // Populate with default values
+            function populateDefaultValues() {
+                fields.forEach(field => {
+                    $(`#${field}`).val(defaultValues[field]);
+                });
+            }
+
+            // Populate default values on page load
+            populateDefaultValues();
+
+            // Form submission
+            $('#anomalyForm').on('submit', function(e) {
+                e.preventDefault();
+
+                // Collect form data
+                const formData = {};
+                fields.forEach(field => {
+                    const value = $(`#${field}`).val() || defaultValues[field];
+                    formData[field] = parseFloat(value);
+                });
+
+                // In a real application, you would send this data to your backend
+                console.log("Form data:", formData);
+
+                // Show a mock result
+                const isFraudulent = Math.random() > 0.5;
+                $('#resultText').text(isFraudulent ? "Fraudulent" : "Normal");
+                $('#result').removeClass('normal fraudulent').addClass(isFraudulent ? 'fraudulent' : 'normal').show();
+            });
+
+            // Reset button
+            $('#resetButton').on('click', function() {
+                fields.forEach(field => {
+                    $(`#${field}`).val('');
+                });
+                $('#result').hide();
+                $('#status').hide();
+            });
+
+            // Fetch random data button
+            $('#fetchButton').on('click', function() {
+                $('#status').text('Fetching random transaction data...').css('background-color', '#cce5ff').css('color', '#004085').show();
+                            
+                // fetching data from creditcard.csv
+                $.ajax({
+                    url: './csvfile',
+                    dataType: 'text',
+                    success: function(data) {
+                        try {
+                            const rows = data.split('\n').filter(row => row.trim() !== '');
+                            if (rows.length <= 1) {
+                                throw new Error('CSV file is empty or contains only headers');
+                        }
+
+                            // Skip header row and get a random data row
+                            const randomRowIndex = Math.floor(Math.random() * (rows.length - 1)) + 1;
+                            const randomRow = rows[randomRowIndex].split(',');
+
+                            // Populate form fields with the random data
+                            fields.forEach((field, index) => {
+                                $(`#${field}`).val(randomRow[index]);
+                });
+                
+                            $('#status').text('Random transaction data loaded successfully!').css('background-color', '#d4edda').css('color', '#155724');
+
+                            // Hide status after 3 seconds
+                            setTimeout(function() {
+                                $('#status').fadeOut();
+                            }, 3000);
+                        } catch (error) {
+                            $('#status').text('Error parsing CSV: ' + error.message).css('background-color', '#f8d7da').css('color', '#721c24');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        $('#status').text('Error loading CSV file: ' + error).css('background-color', '#f8d7da').css('color', '#721c24');
+                    }
+        });
+
+            });
+
+            // File upload handler
+            $('#csvFile').on('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const data = e.target.result;
+                        try {
+                            const rows = data.split('\n').filter(row => row.trim() !== '');
+                            if (rows.length <= 1) {
+                                throw new Error('CSV file is empty or contains only headers');
+                            }
+
+                            // Skip header row and get a random data row
+                            const randomRowIndex = Math.floor(Math.random() * (rows.length - 1)) + 1;
+                            const randomRow = rows[randomRowIndex].split(',');
+
+                            // Populate form fields with the random data
+                            fields.forEach((field, index) => {
+                                $(`#${field}`).val(randomRow[index]);
+                            });
+
+                            $('#status').text('Random transaction data loaded successfully!').css('background-color', '#d4edda').css('color', '#155724').show();
+
+                            // Hide status after 3 seconds
+                            setTimeout(function() {
+                                $('#status').fadeOut();
+                            }, 3000);
+                        } catch (error) {
+                            $('#status').text('Error parsing CSV: ' + error.message).css('background-color', '#f8d7da').css('color', '#721c24').show();
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
